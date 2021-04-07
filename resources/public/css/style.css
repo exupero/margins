@@ -1,0 +1,84 @@
+body {
+  font-family: 'PT Sans';
+  font-size: 12pt;
+}
+
+body main {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.pointer {
+  cursor: pointer;
+}
+
+.hidden {
+  visibility: hidden;
+}
+
+.trim *:first-child {
+  margin-top: 0;
+}
+
+.trim *:last-child {
+  margin-bottom: 0;
+}
+
+.cell {
+  position: relative;
+}
+
+.cell__main {
+  border-left: 1px solid transparent;
+}
+
+.cell--side-border {
+  border-left-color: #cdbb98;
+}
+
+.cell__value {
+  padding: 0.25rem 0.5rem;
+}
+
+.cell__value *:first-child {
+  margin-top: 0;
+  margin-bottom: 0;
+}
+
+.cell__actions {
+  position: absolute;
+  text-align: right;
+  height: 100%;
+  width: 1000px;
+  left: -1000px;
+}
+
+.cell__actions:hover {
+  background-color: #f7f4ee;
+}
+
+.actions--show {
+  background-color: #f7f4ee;
+}
+
+.insert-cell {
+  color: #cdbb98;
+  margin-left: -3.5px;
+  line-height: 0.8;
+}
+
+.CodeMirror {
+  height: auto;
+  font-family: 'PT Mono';
+  background-color: #f7f4ee;
+}
+
+.CodeMirror pre.CodeMirror-line {
+  font-size: 10pt;
+}
+
+.CodeMirror .CodeMirror-matchingbracket {
+  border-bottom: 1px solid black;
+  padding-bottom: 1px;
+  outline: none;
+}

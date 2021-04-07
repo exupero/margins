@@ -1,0 +1,16 @@
+{:deps true
+ :nrepl {:port 8778}
+ :builds {:web {:target :browser
+                :output-dir "resources/public/js/compiled"
+                :asset-path "js/compiled"
+                :modules {:main {:init-fn margins.core/run}}
+                :devtools {:watch-dir "resources/public"
+                           :after-load margins.cljs/init}}
+          :bootstrap {:target :bootstrap
+                      :output-dir "resources/public/js/bootstrap"
+                      :entries [cljs.js
+                                cljs.core
+                                markdown.core
+                                margins.markdown]
+                      :exclude #{cljs.js}
+                      :compiler-options {:cross-chunk-method-motion false}}}}
