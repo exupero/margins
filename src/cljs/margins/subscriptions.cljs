@@ -19,6 +19,6 @@
   (fn [cells _]
     (sort-by :cell/order cells)))
 
-(rp/reg-query-sub ::hovered-position
-  '[:find ?o .
-    :where [_ :globals/hovered-position ?o]])
+(rf/reg-sub ::hovered-position
+  (fn [_ _]
+    (@db/globals :hovered-position)))

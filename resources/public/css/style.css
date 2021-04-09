@@ -8,6 +8,11 @@ body main {
   margin: 0 auto;
 }
 
+body code {
+  font-family: 'PT Mono';
+  font-size: 10pt;
+}
+
 .pointer {
   cursor: pointer;
 }

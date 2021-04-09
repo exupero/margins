@@ -46,11 +46,9 @@
    (cond
     (not initch)
     (err/throw-eof-at-start rdr kind)
-
     (and validate-leading?
          (not-constituent? initch))
     (err/throw-bad-char rdr kind initch)
-
     :else
     (loop [sb (StringBuffer.)
            ch (do (unread rdr initch) initch)]
@@ -64,16 +62,14 @@
 
 (declare read-tagged)
 
-(defn- read-dispatch
-  [rdr _ opts]
+(defn- read-dispatch [rdr _ opts]
   (if-let [ch (read-char rdr)]
     (if-let [dm (dispatch-macros ch)]
       (dm rdr ch opts)
       (read-tagged (doto rdr (unread ch)) ch opts))
     (err/throw-eof-at-dispatch rdr)))
 
-(defn- read-unmatched-delimiter
-  [rdr ch opts]
+(defn- read-unmatched-delimiter [rdr ch opts]
   (err/throw-unmatch-delimiter rdr ch))
 
 ;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
@@ -92,7 +88,6 @@
            (if (== d -1)
              (err/throw-invalid-unicode-digit-in-token nil (nth token i) token)
              (recur (inc i) (+ d (* uc base)))))))))
-
   ([rdr initch base length exact?]
    (loop [i 1 uc (char-code initch base)]
      (if (== uc -1)
@@ -115,8 +110,7 @@
 (def ^:private ^:const upper-limit (.charCodeAt \uD7ff 0))
 (def ^:private ^:const lower-limit (.charCodeAt \uE000 0))
 
-(defn- read-char*
-  [rdr backslash opts]
+(defn- read-char* [rdr backslash opts]
   (let [ch (read-char rdr)]
     (if-not (nil? ch)
       (let [token (if (or (macro-terminating? ch)
@@ -126,16 +120,13 @@
                     (read-token rdr :character ch false))
             token-len (count token)]
         (cond
-
          (== 1 token-len)  (nth token 0)
-
          (identical? token "newline") \newline
          (identical? token "space") \space
          (identical? token "tab") \tab
          (identical? token "backspace") \backspace
          (identical? token "formfeed") \formfeed
          (identical? token "return") \return
-
          (gstring/startsWith token "u")
          (let [c (read-unicode-char token 1 4 16)
                ic (.charCodeAt c)]
@@ -143,7 +134,6 @@
                     (< ic lower-limit))
              (err/throw-invalid-character-literal rdr (.toString ic 16))
              c))
-
          (gstring/startsWith token "o")
          (let [len (dec token-len)]
            (if (> len 3)
@@ -152,7 +142,6 @@
                (if (> (int uc) 0377)
                  (err/throw-bad-octal-number rdr)
                  uc))))
-
          :else (err/throw-unsupported-character rdr token)))
       (err/throw-eof-in-character rdr))))
 
@@ -160,8 +149,7 @@
   (when (indexing-reader? rdr)
     [(get-line-number rdr) (int (dec (int (get-column-number rdr))))]))
 
-(defn- read-delimited
-  [kind delim rdr opts]
+(defn- read-delimited [kind delim rdr opts]
   (let [[start-line start-column] (starting-line-col-info rdr)
         delim (char delim)]
     (loop [a (transient [])]
@@ -176,20 +164,16 @@
             (let [o (read (doto rdr (unread ch)) true nil opts)]
               (recur (if-not (identical? o rdr) (conj! a o) a)))))))))
 
-(defn- read-list
-  [rdr _ opts]
+(defn- read-list [rdr _ opts]
   (let [the-list (read-delimited :list \) rdr opts)]
     (if (empty? the-list)
       '()
       (apply list the-list))))
 
-(defn- read-vector
-  [rdr _ opts]
+(defn- read-vector [rdr _ opts]
   (read-delimited :vector \] rdr opts))
 
-
-(defn- read-map
-  [rdr _ opts]
+(defn- read-map [rdr _ opts]
   (let [[start-line start-column] (starting-line-col-info rdr)
         the-map (read-delimited :map \} rdr opts)
         map-count (count the-map)
@@ -203,8 +187,7 @@
       (.fromArray cljs.core/PersistentArrayMap (to-array the-map) true true)
       (.fromArray cljs.core/PersistentHashMap (to-array the-map) true))))
 
-(defn- read-number
-  [rdr initch opts]
+(defn- read-number [rdr initch opts]
   (loop [sb (doto (StringBuffer.) (.append initch))
          ch (read-char rdr)]
     (if (or (whitespace? ch) (macros ch) (nil? ch))
@@ -236,8 +219,7 @@
             ch))
         (err/throw-bad-escape-char rdr ch)))))
 
-(defn- read-string*
-  [rdr _ opts]
+(defn- read-string* [rdr _ opts]
   (loop [sb (StringBuffer.)
          ch (read-char rdr)]
     (case ch
@@ -247,8 +229,7 @@
       \" (str sb)
       (recur (doto sb (.append ch)) (read-char rdr)))))
 
-(defn- read-backtick-string
-  [rdr _ opts]
+(defn- read-backtick-string [rdr _ opts]
   (loop [items []
          sb (StringBuffer.)
          ch (read-char rdr)]
@@ -274,23 +255,19 @@
            (conj items (str sb)))
       (recur items (doto sb (.append ch)) (read-char rdr)))))
 
-(defn- read-symbol
-  [rdr initch]
+(defn- read-symbol [rdr initch]
   (when-let [token (read-token rdr :symbol initch)]
     (case token
-
       ;; special symbols
       "nil" nil
       "true" true
       "false" false
       "/" '/
-
       (or (when-let [p (parse-symbol token)]
             (symbol (p 0) (p 1)))
           (err/throw-invalid rdr :symbol token)))))
 
-(defn- read-keyword
-  [reader initch opts]
+(defn- read-keyword [reader initch opts]
   (let [ch (read-char reader)]
     (if-not (whitespace? ch)
       (let [token (read-token reader :keyword ch)
@@ -304,13 +281,11 @@
           (err/throw-invalid reader :keyword (str \: token))))
       (err/throw-single-colon reader))))
 
-(defn- wrapping-reader
-  [sym]
+(defn- wrapping-reader [sym]
   (fn [rdr _ opts]
     (list sym (read rdr true nil opts))))
 
-(defn- read-meta
-  [rdr _ opts]
+(defn- read-meta [rdr _ opts]
   (let [m (desugar-meta (read rdr true nil opts))]
     (when-not (map? m)
       (err/throw-bad-metadata rdr m))
@@ -319,21 +294,18 @@
         (with-meta o (merge (meta o) m))
         (err/throw-bad-metadata-target rdr o)))))
 
-(defn- read-set
-  [rdr _ opts]
+(defn- read-set [rdr _ opts]
   (let [coll (read-delimited :set \} rdr opts)
         the-set (set coll)]
       (when-not (= (count coll) (count the-set))
         (err/throw-dup-keys rdr :set coll))
       the-set))
 
-(defn- read-discard
-  [rdr _ opts]
+(defn- read-discard [rdr _ opts]
   (doto rdr
     (read true nil true)))
 
-(defn- read-namespaced-map
-  [rdr _ opts]
+(defn- read-namespaced-map [rdr _ opts]
   (let [token (read-token rdr :namespaced-map (read-char rdr))]
     (if-let [ns (some-> token parse-symbol second')]
       (let [ch (read-past whitespace? rdr)]
@@ -349,19 +321,22 @@
           (err/throw-ns-map-no-map rdr token)))
       (err/throw-bad-ns rdr token))))
 
-(defn- read-symbolic-value
-  [rdr _ opts]
+(defn- read-symbolic-value [rdr _ opts]
   (let [sym (read rdr true nil opts)]
     (case sym
-
       NaN js/Number.NaN
       -Inf js/Number.NEGATIVE_INFINITY
       Inf js/Number.POSITIVE_INFINITY
-
       (err/reader-error rdr (str "Invalid token: ##" sym)))))
+
+(defn- read-wrapping [sym]
+  (fn [rdr _ opts]
+    (let [o (read rdr true nil opts)]
+      (list sym o))))
 
 (defn- macros [ch]
   (case ch
+    \' (read-wrapping 'quote)
     \" read-string*
     \: read-keyword
     \; read-comment

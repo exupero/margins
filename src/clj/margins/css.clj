@@ -50,7 +50,9 @@
   [[:body {:font-family ["'PT Sans'"]
            :font-size (u/pt 12)}
     [:main {:max-width (u/px 800)
-            :margin [[0 :auto]]}]]
+            :margin [[0 :auto]]}]
+    [:code {:font-family ["'PT Mono'"]
+            :font-size (u/pt 10)}]]
    util
    cell
    insert-cell

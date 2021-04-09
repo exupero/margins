@@ -1,5 +1,6 @@
 (ns margins.views
-  (:require [re-frame.core :as rf]
+  (:require [clojure.string :as string]
+            [re-frame.core :as rf]
             [margins.codemirror :refer [codemirror]]
             [margins.subscriptions :as subs]
             [margins.events :as events]))
@@ -15,18 +16,41 @@
 (defn cell-actions [{:keys [item/id cell/show-code? cell/order]} always-show?]
   [:div.cell__actions.pointer
    {:class (when always-show? "actions--show")
-    :on-mouse-over #(rf/dispatch [::events/hover-cell order])
+    :on-mouse-over #(rf/dispatch [::events/hover-position order])
     :on-click (when-not always-show?
                 #(rf/dispatch [::events/set-code-visibility id (not show-code?)]))}])
 
-(defn cell [{:keys [item/id cell/code cell/show-code? cell/value cell/order]}]
+(defn parse-args-from-js [f]
+  (-> (str f)
+    (->> (re-find #"^function \(([^)]+)\)"))
+    second
+    (string/split #",")
+    (->> (mapv symbol))
+    vec))
+
+(defn repr [v]
+  (if (fn? v)
+    (str "(fn " (pr-str (parse-args-from-js v)) ")")
+    (pr-str v)))
+
+(defn result [nm v]
+  (cond
+    (nil? v) [:code "nil"]
+    nm [:code nm " = " (repr v)]
+    (fn? v) [:code (repr v)]
+    (number? v) [:code v]
+    (-> v meta :dom) v
+    :else (pr-str v)))
+
+(defn cell [{nm :cell/name :keys [item/id cell/code cell/show-code? cell/value cell/order cell/dirty?]}]
   (let [hovered-position @(rf/subscribe [::subs/hovered-position])]
     [:div.cell__main
-     {:class (when (or show-code? (nil? value) (= order hovered-position))
+     {:class (when (or show-code? dirty? (nil? value))
                "cell--side-border")
-      :on-mouse-over #(rf/dispatch [::events/hover-cell order])}
+      :on-mouse-over #(rf/dispatch [::events/hover-position order])}
      (when value
-       [:div.cell__value.trim value])
+       [:div.cell__value.trim
+        [result nm value]])
      (when show-code?
        [:div.cell__code [codemirror id true code]])]))
 
