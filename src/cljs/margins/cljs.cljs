@@ -11,11 +11,12 @@
   ([s] (parse-string s data-readers))
   ([s data-readers]
    (let [rdr (string-push-back-reader s)]
-     (loop [forms []]
-       (let [form (reader/read {:readers data-readers, :eof :eof} rdr)]
-         (if (= form :eof)
-           forms
-           (recur (conj forms form))))))))
+     (binding [reader/*data-readers* data-readers]
+       (loop [forms []]
+         (let [form (reader/read {:eof :eof} rdr)]
+           (if (= form :eof)
+             forms
+             (recur (conj forms form)))))))))
 
 (defonce state (cljs.js/empty-state))
 
@@ -37,7 +38,7 @@
       ; eval doesn't seem to like bare string or symbol forms, so we wrap it in
       ; a list and in the callback we'll take the first element of the resulting
       ; value.
-      [(doto (expand-form id nm form) prn)]
+      [(expand-form id nm form)]
       {:eval cljs.js/js-eval
        :load (partial boot/load state)}
       (fn [{[v] :value :as b}]
