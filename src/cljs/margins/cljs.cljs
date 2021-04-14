@@ -26,33 +26,42 @@
 
 (defn expand-form [id nm form]
   (let [arg (gensym "arg")]
-    (list 'let ['<- (list 'fn [arg] (list 'js/emit id (list 'quote nm) arg))]
-      (if nm
-        (list 'def nm form)
-        form))))
+    (if nm
+      (list 'def nm form)
+      form)))
 
-(defn eval-code [form id nm callback]
-  (when form
-    (cljs.js/eval
-      state
-      ; eval doesn't seem to like bare string or symbol forms, so we wrap it in
-      ; a list and in the callback we'll take the first element of the resulting
-      ; value.
-      [(expand-form id nm form)]
-      {:eval cljs.js/js-eval
-       :load (partial boot/load state)}
-      (fn [{[v] :value :as b}]
-        (when callback
-          (callback v))))))
+(defonce loaded? (atom false))
+(defonce eval-queue (atom []))
 
-(defn init []
-  (boot/init state {:path "/bootstrap"} eval-code))
+(defn eval-form [form id nm callback]
+  (cond
+    (nil? form) (callback nil)
+    @loaded? (cljs.js/eval
+               state
+               ; eval doesn't seem to like bare string or symbol forms, so we wrap it in
+               ; a vector and in the callback we'll take the first element of the resulting
+               ; value.
+               [(expand-form id nm form)]
+               {:eval cljs.js/js-eval
+                :load (partial boot/load state)}
+               (fn [{[v] :value :as b}]
+                 (when callback
+                   (callback v))))
+    :else (swap! eval-queue conj {:id id :name nm :form form :callback callback})))
+
+(defn eval-forms [forms]
+  (when-let [[{nm :name :keys [id form callback]} & forms] (seq forms)]
+    (eval-form form id nm (fn [value]
+                            (callback value)
+                            (eval-forms forms)))))
+
+(defn init! []
+  (boot/init state {:path "/bootstrap"}
+             (fn []
+               (reset! loaded? true)
+               (eval-forms @eval-queue))))
 
 (defn possible-dependencies [available-dependencies form]
   (into #{}
         (filter (every-pred symbol? (set available-dependencies)))
-        (tree-seq sequential? seq form)))
-
-(defn define [nm value]
-  (swap! state update-in [:cljs.analyzer/namespaces 'cljs.user :defs nm] dissoc :tag)
-  (aset js/cljs.user (name nm) value))
+        (tree-seq (some-fn sequential? map? set?) seq form)))

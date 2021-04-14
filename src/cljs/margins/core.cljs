@@ -1,6 +1,7 @@
 (ns margins.core
   (:require reagent.dom
             [re-frame.core :as rf]
+            margins.cljs
             margins.events
             margins.views))
 
@@ -12,5 +13,6 @@
   (render))
 
 (defn run []
-  (rf/dispatch-sync [:initialize])
+  (rf/dispatch-sync [:margins.events/initialize])
+  (margins.cljs/init!)
   (render))

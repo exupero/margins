@@ -1,5 +1,6 @@
 (ns margins.views
   (:require [clojure.string :as string]
+            [reagent.core :as r]
             [re-frame.core :as rf]
             [margins.codemirror :refer [codemirror]]
             [margins.subscriptions :as subs]
@@ -7,11 +8,13 @@
 
 (defn insert-cell [order]
   (let [hovered-position @(rf/subscribe [::subs/hovered-position])
-        show? (<= hovered-position order (inc hovered-position))]
-    [:div.insert-cell.pointer
-     {:class (when-not show? "hidden")
-      :on-click #(rf/dispatch [::events/insert-cell order])}
-     "+"]))
+        show? (<= hovered-position order (inc hovered-position))
+        notebook-id @(rf/subscribe [::subs/notebook-id])]
+    [:div.insert-cell
+     [:span.pointer
+      {:class (when-not show? "hidden")
+       :on-click #(rf/dispatch [::events/insert-cell notebook-id order])}
+      "+"]]))
 
 (defn cell-actions [{:keys [item/id cell/show-code? cell/order]} always-show?]
   [:div.cell__actions.pointer
@@ -33,14 +36,18 @@
     (str "(fn " (pr-str (parse-args-from-js v)) ")")
     (pr-str v)))
 
-(defn result [nm v]
-  (cond
-    (nil? v) [:code "nil"]
-    nm [:code nm " = " (repr v)]
-    (fn? v) [:code (repr v)]
-    (number? v) [:code v]
-    (-> v meta :dom) v
-    :else (pr-str v)))
+(defn result [_ _]
+  (r/create-class
+    {:component-did-mount #(rf/dispatch [::events/check-title])
+     :component-did-update #(rf/dispatch [::events/check-title])
+     :reagent-render (fn [nm v]
+                       (cond
+                         (nil? v) [:code "nil"]
+                         nm [:code nm " = " (repr v)]
+                         (fn? v) [:code (repr v)]
+                         (number? v) [:code v]
+                         (-> v meta :dom) v
+                         :else (pr-str v)))}))
 
 (defn cell [{nm :cell/name :keys [item/id cell/code cell/show-code? cell/value cell/order cell/dirty?]}]
   (let [hovered-position @(rf/subscribe [::subs/hovered-position])]
@@ -54,13 +61,28 @@
      (when show-code?
        [:div.cell__code [codemirror id true code]])]))
 
+(defn notebook []
+  [:div
+   [insert-cell 0]
+   (for [{:keys [item/id cell/show-code? cell/value cell/order] :as c} @(rf/subscribe [::subs/cells])]
+     [:div {:key id}
+      [:div.cell
+       [cell-actions c (nil? value)]
+       [cell c]]
+      [insert-cell (inc order)]])])
+
+(defn index []
+  [:div
+   (for [{:keys [item/id notebook/title notebook/slug]} @(rf/subscribe [::subs/notebooks])]
+     [:div {:key id}
+      [:a {:href (str "/" slug)} title]])])
+
 (defn main []
   [:main
-   [insert-cell 0]
-   (doall
-     (for [{:keys [item/id cell/show-code? cell/value cell/order] :as c} @(rf/subscribe [::subs/cells])]
-       [:div {:key id}
-        [:div.cell
-         [cell-actions c (nil? value)]
-         [cell c]]
-        [insert-cell (inc order)]]))])
+   [:button.pointer.pull-right
+    {:on-click #(rf/dispatch [::events/create-notebook])}
+    "New Notebook"]
+   (condp = @(rf/subscribe [::subs/route])
+     :index [index]
+     :notebook [notebook]
+     [:div "Loading..."])])

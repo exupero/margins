@@ -13,22 +13,6 @@
 (defn transact! [conn datoms]
   (d/transact! conn datoms))
 
-(defn new-cell []
-  {:item/type :type/cell
-   :item/id (random-uuid)
-   :cell/code ""
-   :cell/show-code? true
-   :cell/order 0})
-
-(defn cell-ids-after [db order]
-  (d/q '[:find [?id ...]
-         :in $ ?order
-         :where
-         [?e :item/id ?id]
-         [?e :cell/order ?o]
-         [(<= ?order ?o)]]
-       db order))
-
 (defn cell-names [db]
   (d/q '[:find [?nm ...]
          :where [_ :cell/name ?nm]]
@@ -49,15 +33,10 @@
           (dependent ?e2 ?nm)]]))
 
 (defn dependent-cells [db nm]
-  (let [deps (dependencies db nm)
-        name->id (into {}
-                       (comp
-                         (filter :cell/name)
-                         (map (juxt :cell/name :item/id)))
-                       deps)
-        graph (into {}
-                    (map (fn [{:keys [item/id cell/dependencies]}]
-                           [id (into #{} (map name->id) dependencies)]))
-                    deps)
-        sorted (topo/sort graph)]
-    (sort-by (comp #(.indexOf sorted %) :cell/id) > deps)))
+  (topo/topo-sort-cells (dependencies db nm)))
+
+(defn current-notebook [db slug]
+  (d/q '[:find (pull ?e [*]) .
+         :in $ ?slug
+         :where [?e :notebook/slug ?slug]]
+       db slug))

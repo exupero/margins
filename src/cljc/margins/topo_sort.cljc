@@ -1,5 +1,4 @@
 (ns margins.topo-sort
-  (:refer-clojure :exclude [sort])
   (:require [clojure.set :refer [difference union intersection]]))
 
 ; A modified version of https://gist.github.com/alandipert/1263783, which included the following notice:
@@ -26,12 +25,12 @@
   (let [have-incoming (apply union (vals g))]
     (reduce #(if (get % %2) % (assoc % %2 #{})) g have-incoming)))
 
-(defn sort
+(defn topo-sort
   "Proposes a topological sort for directed graph g using Kahn's
    algorithm, where g is a map of nodes to sets of nodes. If g is
    cyclic, returns nil."
   ([g]
-   (sort (normalize g) [] (no-incoming g)))
+   (topo-sort (normalize g) [] (no-incoming g)))
   ([g l s]
    (if (empty? s)
      (when (every? empty? (vals g)) l)
@@ -40,3 +39,16 @@
            m (g n)
            g' (reduce #(update-in % [n] disj %2) g m)]
        (recur g' (conj l n) (union s' (intersection (no-incoming g') m)))))))
+
+(defn topo-sort-cells [deps]
+  (let [name->id (into {}
+                       (comp
+                         (filter :cell/name)
+                         (map (juxt :cell/name :item/id)))
+                       deps)
+        graph (into {}
+                    (map (fn [{:keys [item/id cell/dependencies]}]
+                           [id (into #{} (map name->id) dependencies)]))
+                    deps)
+        sorted (topo-sort graph)]
+    (sort-by (comp #(.indexOf sorted %) :item/id) > deps)))

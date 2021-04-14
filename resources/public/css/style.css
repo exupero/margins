@@ -29,6 +29,10 @@ body code {
   margin-bottom: 0;
 }
 
+.pull-right {
+  float: right;
+}
+
 .cell {
   position: relative;
 }

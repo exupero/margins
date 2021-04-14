@@ -1,11 +1,43 @@
 (ns margins.subscriptions
-  (:require [re-frame.core :as rf]
+  (:require [cljs-time.core :as t]
+            [cljs-time.coerce :as tc]
+            [re-frame.core :as rf]
             [re-posh.core :as rp]
             [margins.db :as db]))
 
+(rf/reg-sub ::hovered-position
+  (fn [_ _]
+    (@db/globals :hovered-position)))
+
+(rf/reg-sub ::route
+  (fn [_ _]
+    (@db/globals :route)))
+
+(rp/reg-query-sub ::notebook-ids
+  '[:find [?e ...]
+    :where [?e :item/type :type/notebook]])
+
+(rp/reg-sub ::notebooks-unsorted
+  :<- [::notebook-ids]
+  (fn [ids _]
+    {:type :pull-many
+     :pattern '[*]
+     :ids ids}))
+
+(rf/reg-sub ::notebooks
+  :<- [::notebooks-unsorted]
+  (fn [notebooks _]
+    (sort-by (comp tc/to-long #(or % (t/now)) :notebook/updated-at) > notebooks)))
+
+(rp/reg-query-sub ::notebook-id
+  '[:find ?id .
+    :where
+    [?e :item/type :type/notebook]
+    [?e :item/id ?id]])
+
 (rp/reg-query-sub ::cell-ids
-  '[:find [?id ...]
-    :where [?id :item/type :type/cell]])
+  '[:find [?e ...]
+    :where [?e :item/type :type/cell]])
 
 (rp/reg-sub ::cells-unordered
   :<- [::cell-ids]
@@ -18,7 +50,3 @@
   :<- [::cells-unordered]
   (fn [cells _]
     (sort-by :cell/order cells)))
-
-(rf/reg-sub ::hovered-position
-  (fn [_ _]
-    (@db/globals :hovered-position)))

@@ -14,7 +14,8 @@
    [:.trim
     [:*
      [:&:first-child {:margin-top 0}]
-     [:&:last-child {:margin-bottom 0}]]]])
+     [:&:last-child {:margin-bottom 0}]]]
+   [:.pull-right {:float :right}]])
 
 (def cell
   [[:.cell {:position :relative}]
