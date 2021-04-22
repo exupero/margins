@@ -5,6 +5,7 @@
             [ring.middleware.stacktrace :refer [wrap-stacktrace]]
             [ring.middleware.format :refer [wrap-restful-format]]
             [ring.middleware.reload :refer [wrap-reload]]
+            [ring.middleware.resource :refer [wrap-resource]]
             [margins.db :as db]))
 
 (def index-response
@@ -52,18 +53,6 @@
   (cond
     (= uri "/")
     index-response
-    (re-find #"^/js" uri)
-    {:status 200
-     :headers {"Content-type" "text/javascript"}
-     :body (slurp (io/resource (str "public" uri)))}
-    (re-find #"^/css" uri)
-    {:status 200
-     :headers {"Content-type" "text/css"}
-     :body (slurp (io/resource (str "public" uri)))}
-    (re-find #"^/bootstrap" uri)
-    {:status 200
-     :headers {"Content-type" "text/javascript"}
-     :body (slurp (io/resource (str "public/js" uri)))}
     (re-matches #"^/api$" uri)
     (api req)
     (re-matches #"^/[^/]+$" uri)
@@ -72,5 +61,6 @@
 (def handler (-> core
                wrap-params
                (wrap-restful-format :formats [:transit-json])
+               (wrap-resource "public")
                wrap-stacktrace
                wrap-reload))

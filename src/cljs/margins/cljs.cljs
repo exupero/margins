@@ -47,7 +47,7 @@
         (ev nm form)))))
 
 (defn init! []
-  (boot/init state {:path "/bootstrap"}
+  (boot/init state {:path "/js/bootstrap"}
              (fn []
                (reset! loaded? true)
                (eval-forms @eval-queue))))
