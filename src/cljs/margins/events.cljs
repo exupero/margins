@@ -5,6 +5,7 @@
             [margins.cljs :as cljs]
             [margins.db :as db]
             [margins.effects :as effects]
+            [margins.parse :refer [parse-name-and-form]]
             [margins.slug :refer [slugify]]
             [margins.topo-sort :as topo]))
 
@@ -66,17 +67,11 @@
     {:db (doto db (db/transact! [notebook]))
      ::effects/set-title title}))
 
-(defn parse-code [code]
-  (let [[nm-or-form form] (cljs/parse-string code)]
-    (if (and form (symbol? nm-or-form))
-      [nm-or-form form]
-      [nil nm-or-form])))
-
 (rf/reg-event-fx ::set-cells
   (fn [{:keys [db]} [_ cells]]
     {:db (doto db (db/transact! cells))
      ::effects/eval (for [{:keys [item/id cell/code]} (topo/topo-sort-cells cells)
-                          :let [[nm form] (parse-code code)]]
+                          :let [[nm form] (parse-name-and-form code)]]
                       {:id id, :name nm, :form form})}))
 
 (rp/reg-event-ds ::edit
@@ -91,7 +86,7 @@
 
 (rf/reg-event-fx ::eval
   (fn [{:keys [db]} [_ id code]]
-    (let [[nm form] (parse-code code)
+    (let [[nm form] (parse-name-and-form code)
           dependencies (cljs/possible-dependencies (db/cell-names @db) form)]
       {:db (doto db
              (db/transact! (cond-> [[:db/add [:item/id id] :cell/dependencies dependencies]
@@ -101,13 +96,13 @@
        ::effects/mutate [{:mutation ['update-cell {:item/id id :cell/code code :cell/name nm :cell/dependencies dependencies}]}]
        ::effects/eval (cons {:id id, :name nm, :form form}
                             (for [{nm :cell/name :keys [item/id cell/code]} (db/dependent-cells @db nm)
-                                  :let [[nm form] (parse-code code)]]
+                                  :let [[nm form] (parse-name-and-form code)]]
                               {:id id, :name nm, :form form}))})))
 
 (rf/reg-event-fx ::eval-dependents
   (fn [{:keys [db]} [_ nm]]
     {::effects/eval (for [{nm :cell/name :keys [item/id cell/code]} (db/dependent-cells @db nm)
-                          :let [[nm form] (parse-code code)]]
+                          :let [[nm form] (parse-name-and-form code)]]
                       {:id id, :name nm, :form form})}))
 
 (rp/reg-event-ds ::evaled

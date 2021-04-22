@@ -1,22 +1,8 @@
 (ns margins.cljs
   (:require cljs.js
-            [cljs.tools.reader.reader-types :refer [string-push-back-reader]]
             [shadow.cljs.bootstrap.browser :as boot]
-            [margins.reader :as reader]
+            ; needs to be included as it may be used by evaluated expressions
             margins.markdown))
-
-(def data-readers {'md #(list* 'margins.markdown/markdown %)})
-
-(defn parse-string
-  ([s] (parse-string s data-readers))
-  ([s data-readers]
-   (let [rdr (string-push-back-reader s)]
-     (binding [reader/*data-readers* data-readers]
-       (loop [forms []]
-         (let [form (reader/read {:eof :eof} rdr)]
-           (if (= form :eof)
-             forms
-             (recur (conj forms form)))))))))
 
 (defonce state (cljs.js/empty-state))
 
@@ -50,10 +36,15 @@
     :else (swap! eval-queue conj {:id id :name nm :form form :callback callback})))
 
 (defn eval-forms [forms]
-  (when-let [[{nm :name :keys [id form callback]} & forms] (seq forms)]
-    (eval-form form id nm (fn [value]
-                            (callback value)
-                            (eval-forms forms)))))
+  (when-let [[{nm :name :keys [id form load-include callback]} & forms] (seq forms)]
+    (let [ev (fn [nm form]
+               (eval-form form id nm (fn [value]
+                                       (callback value)
+                                       (eval-forms forms))))]
+      (if (and (list? form) (= 'include (first form)))
+        (let [[_ include-name] form]
+          (load-include form #(ev (or nm include-name) %)))
+        (ev nm form)))))
 
 (defn init! []
   (boot/init state {:path "/bootstrap"}

@@ -2,8 +2,11 @@
   (:require [clj-time.core :as t]
             [clj-time.coerce :as tc]
             [datahike.api :as d]
+            [margins.queries :as queries]
+            [margins.parse :refer [parse-name-and-form]]
             [margins.slug :refer [slugify]]
-            [margins.title-generator :refer [new-title]])
+            [margins.title-generator :refer [new-title]]
+            [margins.topo-sort :as topo])
   (:import [java.util UUID]))
 
 (def default-config {:store {:backend :file, :path "./db"}
@@ -96,6 +99,44 @@
                           nm (conj [:db/add [:item/id cell-id] :cell/name nm])
                           dependencies (conj [:db/add [:item/id cell-id] :cell/dependencies dependencies]))]
     (d/transact conn transacts)))
+
+(defn transclude [notebook-slug nm remap-names]
+  (let [deps (topo/topo-sort-cells
+               (d/q
+                 '[:find [(pull ?e [:item/id :cell/name :cell/code :cell/dependencies]) ...]
+                   :in $ ?slug ?name %
+                   :where
+                   [?n :notebook/slug ?slug]
+                   [?e1 :cell/notebook ?n]
+                   [?e1 :cell/name ?name]
+                   (dependency ?e1 ?e)]
+                 @conn (name 'test-utils) nm queries/dependency))
+        {final :cell/code} (d/q '[:find (pull ?e [:cell/code]) .
+                                  :in $ ?slug ?name
+                                  :where
+                                  [?n :notebook/slug ?slug]
+                                  [?e :cell/notebook ?n]
+                                  [?e :cell/name ?name]]
+                                @conn notebook-slug nm)
+        remapped (into {}
+                       (map (fn [[k v]]
+                              [k [v (gensym (name v))]]))
+                       remap-names)
+        lets (concat
+               (mapcat (fn [[k [v g]]]
+                         [g v])
+                       remapped)
+               (mapcat (fn [{nm :cell/name :keys [cell/code]}]
+                         (let [[_ form] (parse-name-and-form code)
+                               [_ g] (remapped nm)]
+                           [nm (or g form)]))
+                      deps))
+        [_ final-form] (parse-name-and-form final)
+        m (meta final-form)]
+    `(~'let [~@lets] (~'with-meta ~final-form ~m))))
+
+#_
+(transclude 'test-utils 'square '{height x})
 
 (comment
   (init-db! default-config)

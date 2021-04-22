@@ -5,10 +5,31 @@
             [margins.cljs :as cljs]
             [margins.db :as db]))
 
+(defn request [m]
+  (ajax/ajax-request
+    (merge {:format (ajax/transit-request-format)
+            :response-format (ajax/transit-response-format)}
+           m)))
+
+(defn api [body handler]
+  (request {:uri "/api"
+            :method :post
+            :params body
+            :handler handler}))
+
+(defn load-include [form handler]
+  (api {:get ['include form]}
+       (fn [[ok result]]
+         (if ok
+           (when handler (handler result))
+           (rf/dispatch [:margins.events/error result])))))
+
 (rf/reg-fx ::eval
   (fn [cells]
     (cljs/eval-forms (for [{:keys [id] :as cell} cells]
-                       (assoc cell :callback #(rf/dispatch [:margins.events/evaled id %]))))))
+                       (assoc cell
+                              :load-include load-include
+                              :callback #(rf/dispatch [:margins.events/evaled id %]))))))
 
 (rf/reg-fx ::clear-globals
   (fn [_]
@@ -18,35 +39,25 @@
   (fn [[k v]]
     (swap! db/globals assoc k v)))
 
-(defn request [m]
-  (ajax/ajax-request
-    (merge {:format (ajax/transit-request-format)
-            :response-format (ajax/transit-response-format)}
-           m)))
-
 (rf/reg-fx ::query
   (fn [queries]
     (doseq [{:keys [query args handler]} queries]
-      (request {:uri "/api"
-                :method :post
-                :params {:query query :args args}
-                :handler (fn [[ok result]]
-                           (if ok
-                             (when handler (handler result))
-                             (rf/dispatch [:margins.events/error result])))}))))
+      (api {:query query :args args}
+           (fn [[ok result]]
+             (if ok
+               (when handler (handler result))
+               (rf/dispatch [:margins.events/error result])))))))
 
 (rf/reg-fx ::mutate
   (fn [mutations]
     (doseq [{:keys [mutation handler]} mutations]
-      (request {:uri "/api"
-                :method :post
-                :params {:mutation mutation}
-                :handler (fn [[ok result]]
-                           (if ok
-                             (do
-                               (rf/dispatch [:margins.events/transact (result :tx-data)])
-                               (when handler (handler result)))
-                             (rf/dispatch [:margins.events/error result])))}))))
+      (api {:mutation mutation}
+           (fn [[ok result]]
+             (if ok
+               (do
+                 (rf/dispatch [:margins.events/transact (result :tx-data)])
+                 (when handler (handler result)))
+               (rf/dispatch [:margins.events/error result])))))))
 
 (rf/reg-fx ::push-state
   (fn [url]

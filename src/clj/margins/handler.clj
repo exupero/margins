@@ -26,7 +26,13 @@
 (defmethod act 'update-cell [_ {:keys [item/id] :as cell}]
   (db/update-cell! id cell))
 
-(defn api [{{:keys [query args mutation]} :body-params}]
+(defmulti ask (fn [q _] q))
+
+(defmethod ask 'include [_ form]
+  (let [[_ nm & {:keys [from using]}] form]
+    (db/transclude (name from) nm using)))
+
+(defn api [{{g :get :keys [query args mutation]} :body-params}]
   (cond
     mutation
     (let [[action body] mutation]
@@ -34,6 +40,10 @@
        :body (-> (act action body)
                (dissoc :db-before :db-after :tempids :tx-meta)
                (update :tx-data (partial map (partial into []))))})
+    g
+    (let [[q params] g]
+      {:status 200
+       :body (ask q params)})
     query
     {:status 200
      :body (db/query query args)}))
