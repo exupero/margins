@@ -16,13 +16,15 @@
 
 (rf/reg-event-fx ::initialize
   (fn [_ _]
-    (if-let [slug (current-slug)]
-      {:dispatch [::go-to-notebook slug]}
-      {:db (doto (db/empty-db) rp/connect!)
-       ::effects/set-global [:route :index]
-       ::effects/query [{:query '[:find [(pull ?e [*]) ...]
-                                  :where [?e :item/type :type/notebook]]
-                         :handler #(rf/dispatch [::set-notebooks %])}]})))
+    (let [db (doto (db/empty-db) rp/connect!)]
+      (if-let [slug (current-slug)]
+        {:db db
+         :dispatch [::go-to-notebook slug]}
+        {:db db
+         ::effects/set-global [:route :index]
+         ::effects/query [{:query '[:find [(pull ?e [*]) ...]
+                                    :where [?e :item/type :type/notebook]]
+                           :handler #(rf/dispatch [::set-notebooks %])}]}))))
 
 (rp/reg-event-ds ::set-notebooks
   (fn [_ [_ notebooks]]
@@ -45,8 +47,9 @@
     {::effects/set-title title}))
 
 (rf/reg-event-fx ::go-to-notebook
-  (fn [_ [_ slug title]]
-    {:db (doto (db/empty-db) rp/connect!)
+  (fn [{:keys [db]} [_ slug title]]
+    (prn db)
+    {::effects/reset-db db
      ::effects/set-global [:route :notebook]
      ::effects/query [{:query '[:find (pull ?e [*]) .
                                 :in $ ?slug
@@ -118,6 +121,10 @@
 (rf/reg-event-fx ::insert-cell
   (fn [db [_ notebook-id order]]
     {::effects/mutate [{:mutation ['insert-cell {:cell/notebook-id notebook-id :cell/order order}]}]}))
+
+(rf/reg-event-fx ::delete-cell
+  (fn [_ [_ id]]
+    {::effects/mutate [{:mutation ['delete-cell {:item/id id}]}]}))
 
 (rf/reg-event-fx ::hover-position
   (fn [db [_ order]]

@@ -123,6 +123,30 @@
                           dependencies (conj [:db/add [:item/id cell-id] :cell/dependencies dependencies]))]
     (d/transact conn transacts)))
 
+(defn delete-cell! [id]
+  (let [notebook-id (d/q '[:find ?n .
+                           :in $ ?cell-id
+                           :where
+                           [?e :item/id ?cell-id]
+                           [?e :cell/notebook ?n]]
+                         @conn id)
+        bumped-cells (d/q '[:find (pull ?e [:item/id :cell/order :cell/notebook])
+                            :in $ ?cell-id
+                            :where
+                            [?e1 :item/id ?cell-id]
+                            [?e1 :cell/notebook ?n]
+                            [?e1 :cell/order ?o1]
+                            [?e :cell/notebook ?n]
+                            [?e :item/id ?id]
+                            [?e :cell/order ?o]
+                            [(< ?o1 ?o)]]
+                          @conn id)]
+    (d/transact conn
+                (into [[:db/add notebook-id :notebook/updated-at (tc/to-date (t/now))]
+                       [:db.fn/retractEntity [:item/id id]]]
+                      (for [[{:keys [item/id cell/order]}] bumped-cells]
+                        [:db/add [:item/id id] :cell/order (dec order)])))))
+
 (defn transclude [notebook-slug nm remap-names]
   (let [deps (topo/topo-sort-cells
                (d/q

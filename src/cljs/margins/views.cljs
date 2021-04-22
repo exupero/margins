@@ -3,8 +3,9 @@
             [reagent.core :as r]
             [re-frame.core :as rf]
             [margins.codemirror :refer [codemirror]]
+            [margins.events :as events]
             [margins.subscriptions :as subs]
-            [margins.events :as events]))
+            margins.renderable))
 
 (defn insert-cell [order]
   (let [marker (r/atom nil)]
@@ -29,18 +30,34 @@
            :on-click #(rf/dispatch [::events/insert-cell notebook-id order])}
           "+"]]))))
 
-(defn cell-actions [{:keys [item/id cell/show-code? cell/order]} always-show?]
-  [:div.cell__actions.pointer
-   {:class (when always-show? "actions--show")
-    :on-mouse-over #(rf/dispatch [::events/hover-position order])
-    :on-click (when-not always-show?
-                #(rf/dispatch [::events/set-code-visibility id (not show-code?)]))}
-   [:div.actions__menu.hide.grabber
-    {:draggable true
-     :on-click #(.stopPropagation %)
-     :on-drag-start #(rf/dispatch [::events/drag-cell id])
-     :on-drag-end #(rf/dispatch [::events/drop-cell])}
-    [:i.icofont.icofont-navigation-menu]]])
+(defn ico [k]
+  [:i {:class (str "icofont-" (name k))}])
+
+(defn cell-actions [_ _]
+  (let [show-actions? (r/atom false)]
+    (fn [{:keys [item/id cell/show-code? cell/order]} always-show?]
+      [:div.cell__actions.pointer
+       {:class (when always-show? "actions--show")
+        :on-mouse-over #(rf/dispatch [::events/hover-position order])
+        :on-click (when-not always-show?
+                    #(rf/dispatch [::events/set-code-visibility id (not show-code?)]))}
+       [:div.actions__menu.hide
+        (when @show-actions?
+          [:span
+           [:span.mr5.hover-darken
+            {:on-click #(rf/dispatch [::events/delete-cell id])}
+            [ico :ui-delete]]
+           [:span.mr5.hover-darken
+            {:on-click #(rf/dispatch [::events/attach id])}
+            [ico :paper-clip]]])
+        [:span.grabber
+         {:draggable true
+          :on-click #(do
+                       (.stopPropagation %)
+                       (swap! show-actions? not))
+          :on-drag-start #(rf/dispatch [::events/drag-cell id])
+          :on-drag-end #(rf/dispatch [::events/drop-cell])}
+         [ico :navigation-menu]]]])))
 
 (defn parse-args-from-js [f]
   (-> (str f)
@@ -66,6 +83,7 @@
                          (fn? v) [:code (repr v)]
                          (number? v) [:code v]
                          (-> v meta :dom) v
+                         (satisfies? margins.renderable/IRender v) (margins.renderable/render v)
                          :else (pr-str v)))}))
 
 (defn cell [{nm :cell/name :keys [item/id cell/code cell/show-code? cell/value cell/order cell/dirty?]}]
@@ -98,9 +116,12 @@
 
 (defn main []
   [:main
-   [:button.pointer.pull-right
-    {:on-click #(rf/dispatch [::events/create-notebook])}
-    "New Notebook"]
+   [:div.text-right
+    [:a.mr10 {:href "/"} "All Notebooks"]
+    [:button.pointer
+     {:on-click #(rf/dispatch [::events/create-notebook])}
+     "New Notebook"]]
+   [:div.clearfix]
    (condp = @(rf/subscribe [::subs/route])
      :index [index]
      :notebook [notebook]

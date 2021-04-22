@@ -7,6 +7,7 @@
 
 (def parchment (c/hsl 40 34 95))
 (def parchment-dark (c/hsl 40 34 70))
+(def parchment-darker (c/hsl 40 34 50))
 
 (def accent (c/hsl 220 34 60))
 
@@ -15,11 +16,17 @@
    [:.grabber {:cursor :grab}]
    [:.hidden {:visibility :hidden}]
    [:.hide {:display :none}]
+   [:.hover-darken [:&:hover {:color parchment-darker}]]
    [:.trim
     [:*
      [:&:first-child {:margin-top 0}]
-     [:&:last-child {:margin-bottom 0}]]]
-   [:.pull-right {:float :right}]])
+     [:&:last-child {:margin-bottom 0}]]]])
+
+(def layout
+  [[:clearfix {:clear :both}]
+   [:.text-right {:text-align :right}]
+   [:.mr5 {:margin-right (u/rem 0.5)}]
+   [:.mr10 {:margin-right (u/rem 1)}]])
 
 (def cell
   [[:.cell {:position :relative}]
@@ -47,8 +54,8 @@
                    :line-height 0.8
                    :position :relative}]
    [:.insert-cell__dropzone {:position :absolute
-                             :top (u/px 0)
-                             :bottom (u/px 0)
+                             :top (u/px -15)
+                             :bottom (u/px -15)
                              :left (u/px -1000)
                              :right (u/px -1000)}]
    [:.insert-cell__dropzone-marker {:position :absolute
@@ -72,10 +79,11 @@
   [[:body {:font-family ["'PT Sans'"]
            :font-size (u/pt 12)}
     [:main {:max-width (u/px 800)
-            :margin [[0 :auto]]}]
+            :margin [[0 :auto (u/rem 10)]]}]
     [:code {:font-family ["'PT Mono'"]
             :font-size (u/pt 10)}]]
    util
+   layout
    cell
    insert-cell
    codemirror])

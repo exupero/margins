@@ -30,6 +30,9 @@
 (defmethod act 'update-cell [_ {:keys [item/id] :as cell}]
   (db/update-cell! id cell))
 
+(defmethod act 'delete-cell [_ {:keys [item/id]}]
+  (db/delete-cell! id))
+
 (defmulti ask (fn [q _] q))
 
 (defmethod ask 'include [_ form]

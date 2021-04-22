@@ -31,6 +31,10 @@
                               :load-include load-include
                               :callback #(rf/dispatch [:margins.events/evaled id %]))))))
 
+(rf/reg-fx ::reset-db
+  (fn [db]
+    (db/reset-db! db)))
+
 (rf/reg-fx ::clear-globals
   (fn [_]
     (reset! db/globals {})))

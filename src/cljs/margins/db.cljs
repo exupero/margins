@@ -11,6 +11,9 @@
 (defn empty-db []
   (d/create-conn schema))
 
+(defn reset-db! [conn]
+  (d/reset-conn! conn (d/empty-db schema)))
+
 (defn transact! [conn datoms]
   (d/transact! conn datoms))
 
