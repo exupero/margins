@@ -132,3 +132,12 @@
                             :handler (fn [{{:keys [notebook/slug notebook/title]} :updated-notebook}]
                                        (rf/dispatch [::push-state (str "/" slug)])
                                        (when title (rf/dispatch [::set-title title])))}]}))))
+
+(rf/reg-event-fx ::drag-cell
+  (fn [_ [_ id]]
+    {::effects/set-global [:dragged-cell-id id]}))
+
+(rf/reg-event-fx ::drop-cell
+  (fn [_ [_ id order]]
+    (cond-> {::effects/set-global [:dragged-cell-id nil]}
+            id (assoc ::effects/mutate [{:mutation ['move-cell {:item/id id :cell/order order}]}]))))

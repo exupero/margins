@@ -24,6 +24,9 @@
 (defmethod act 'insert-cell [_ {:keys [cell/notebook-id cell/order]}]
   (db/insert-cell! notebook-id order))
 
+(defmethod act 'move-cell [_ {:keys [item/id cell/order]}]
+  (db/move-cell! id order))
+
 (defmethod act 'update-cell [_ {:keys [item/id] :as cell}]
   (db/update-cell! id cell))
 

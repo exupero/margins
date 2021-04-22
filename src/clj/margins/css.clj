@@ -8,9 +8,13 @@
 (def parchment (c/hsl 40 34 95))
 (def parchment-dark (c/hsl 40 34 70))
 
+(def accent (c/hsl 220 34 60))
+
 (def util
   [[:.pointer {:cursor :pointer}]
+   [:.grabber {:cursor :grab}]
    [:.hidden {:visibility :hidden}]
+   [:.hide {:display :none}]
    [:.trim
     [:*
      [:&:first-child {:margin-top 0}]
@@ -29,13 +33,30 @@
                      :height (u/percent 100)
                      :width (u/px 1000)
                      :left (u/px -1000)}
-    [:&:hover {:background-color parchment}]]
-   [:.actions--show {:background-color parchment}]])
+    [:&:hover {:background-color parchment}
+     [:.actions__menu {:display :block}]]]
+   [:.actions--show {:background-color parchment}]
+   [:.actions__menu {:color parchment-dark
+                     :font-size (u/pt 10)
+                     :position :absolute
+                     :right (u/rem 0.2)}]])
 
 (def insert-cell
   [[:.insert-cell {:color parchment-dark
                    :margin-left (u/px -3.5)
-                   :line-height 0.8}]])
+                   :line-height 0.8
+                   :position :relative}]
+   [:.insert-cell__dropzone {:position :absolute
+                             :top (u/px 0)
+                             :bottom (u/px 0)
+                             :left (u/px -1000)
+                             :right (u/px -1000)}]
+   [:.insert-cell__dropzone-marker {:position :absolute
+                                    :top (u/px 5)
+                                    :left (u/rem -1)
+                                    :right (u/rem -1)
+                                    :height (u/px 3)
+                                    :background-color accent}]])
 
 (def codemirror
   [[:.CodeMirror

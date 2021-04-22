@@ -17,8 +17,16 @@ body code {
   cursor: pointer;
 }
 
+.grabber {
+  cursor: grab;
+}
+
 .hidden {
   visibility: hidden;
+}
+
+.hide {
+  display: none;
 }
 
 .trim *:first-child {
@@ -66,14 +74,43 @@ body code {
   background-color: #f7f4ee;
 }
 
+.cell__actions:hover .actions__menu {
+  display: block;
+}
+
 .actions--show {
   background-color: #f7f4ee;
+}
+
+.actions__menu {
+  color: #cdbb98;
+  font-size: 10pt;
+  position: absolute;
+  right: 0.2rem;
 }
 
 .insert-cell {
   color: #cdbb98;
   margin-left: -3.5px;
   line-height: 0.8;
+  position: relative;
+}
+
+.insert-cell__dropzone {
+  position: absolute;
+  top: 0px;
+  bottom: 0px;
+  left: -1000px;
+  right: -1000px;
+}
+
+.insert-cell__dropzone-marker {
+  position: absolute;
+  top: 5px;
+  left: -1rem;
+  right: -1rem;
+  height: 3px;
+  background-color: #768dbc;
 }
 
 .CodeMirror {

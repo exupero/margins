@@ -13,6 +13,10 @@
   (fn [_ _]
     (@db/globals :route)))
 
+(rf/reg-sub ::dragged-cell-id
+  (fn [_ _]
+    (@db/globals :dragged-cell-id)))
+
 (rp/reg-query-sub ::notebook-ids
   '[:find [?e ...]
     :where [?e :item/type :type/notebook]])

@@ -62,29 +62,52 @@
                           [:db/add [:item/id id] :notebook/updated-at (tc/to-date (t/now))]])
       (assoc :updated-notebook {:notebook/title title :notebook/slug slug}))))
 
-(defn cell-ids-after [notebook-id order]
-  (d/q '[:find ?id ?o
-         :in $ ?notebook-id ?order
-         :where
-         [?n :item/id ?notebook-id]
-         [?n :item/type :type/notebook]
-         [?e :item/id ?id]
-         [?e :cell/notebook ?n]
-         [?e :cell/order ?o]
-         [(<= ?order ?o)]]
-       @conn notebook-id order))
-
 (defn insert-cell! [notebook-id order]
   (let [new-cell {:item/type :type/cell
-                           :item/id (UUID/randomUUID)
-                           :cell/notebook [:item/id notebook-id]
-                           :cell/order order
-                           :cell/show-code? true}]
+                  :item/id (UUID/randomUUID)
+                  :cell/notebook [:item/id notebook-id]
+                  :cell/order order
+                  :cell/show-code? true}
+        bumped-cells (d/q '[:find ?id ?o
+                            :in $ ?notebook-id ?order
+                            :where
+                            [?n :item/id ?notebook-id]
+                            [?n :item/type :type/notebook]
+                            [?e :item/id ?id]
+                            [?e :cell/notebook ?n]
+                            [?e :cell/order ?o]
+                            [(<= ?order ?o)]]
+                          @conn notebook-id order)]
     (-> (d/transact conn
-                    (into [[:db/add [:item/id notebook-id] :notebook/updated-at (tc/to-date (t/now))] new-cell]
-                          (for [[id order] (cell-ids-after notebook-id order)]
+                    (into [[:db/add [:item/id notebook-id] :notebook/updated-at (tc/to-date (t/now))]
+                           new-cell]
+                          (for [[id order] bumped-cells]
                             [:db/add [:item/id id] :cell/order (inc order)])))
       (assoc :new-cell new-cell))))
+
+(defn move-cell! [id order]
+  (let [cells (d/q '[:find [(pull ?e [:item/id :cell/order :cell/notebook]) ...]
+                     :in $ ?cell-id
+                     :where
+                     [?e1 :item/id ?cell-id]
+                     [?e1 :cell/notebook ?n]
+                     [?e :cell/notebook ?n]]
+                   @conn id)
+        sorted (->> cells
+                 (map (fn [{id' :item/id :as cell}]
+                        (if (= id' id)
+                          (assoc cell :cell/order (- order 0.5))
+                          cell)))
+                 (sort-by :cell/order))
+        _ (prn sorted)
+        updates (map (fn [{:keys [item/id]} order]
+                       [:db/add [:item/id id] :cell/order order])
+                     sorted (range))
+        notebook-id (-> cells first :cell/notebook :db/id)]
+    (d/transact conn
+                (into [[:db/add notebook-id :notebook/updated-at (tc/to-date (t/now))]
+                       [:db/add [:item/id id] :cell/order order]]
+                      updates))))
 
 (defn update-cell! [cell-id {nm :cell/name :keys [cell/code cell/show-code? cell/dependencies]}]
   (let [notebook-id (d/q '[:find ?n .

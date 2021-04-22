@@ -7,25 +7,44 @@
             [margins.events :as events]))
 
 (defn insert-cell [order]
-  (let [hovered-position @(rf/subscribe [::subs/hovered-position])
-        show? (<= hovered-position order (inc hovered-position))
-        notebook-id @(rf/subscribe [::subs/notebook-id])]
-    [:div.insert-cell
-     [:span.pointer
-      {:class (when-not show? "hidden")
-       :on-click #(rf/dispatch [::events/insert-cell notebook-id order])}
-      "+"]]))
+  (let [marker (r/atom nil)]
+    (fn [order]
+      (let [hovered-position @(rf/subscribe [::subs/hovered-position])
+            show? (<= hovered-position order (inc hovered-position))
+            notebook-id @(rf/subscribe [::subs/notebook-id])]
+        [:div.insert-cell
+         (when-let [dragged-id @(rf/subscribe [::subs/dragged-cell-id])]
+           [:div
+            [:div.insert-cell__dropzone
+             {:on-drag-enter #(.remove (.-classList @marker) "hide")
+              :on-drag-over #(do (.stopPropagation %) (.preventDefault %))
+              :on-drag-leave #(.add (.-classList @marker) "hide")
+              :on-drop #(do
+                          (.add (.-classList @marker) "hide")
+                          (rf/dispatch [::events/drop-cell dragged-id order]))}]
+            [:div.insert-cell__dropzone-marker.hide
+             {:ref (partial reset! marker)}]])
+         [:span.pointer
+          {:class (when-not show? "hidden")
+           :on-click #(rf/dispatch [::events/insert-cell notebook-id order])}
+          "+"]]))))
 
 (defn cell-actions [{:keys [item/id cell/show-code? cell/order]} always-show?]
   [:div.cell__actions.pointer
    {:class (when always-show? "actions--show")
     :on-mouse-over #(rf/dispatch [::events/hover-position order])
     :on-click (when-not always-show?
-                #(rf/dispatch [::events/set-code-visibility id (not show-code?)]))}])
+                #(rf/dispatch [::events/set-code-visibility id (not show-code?)]))}
+   [:div.actions__menu.hide.grabber
+    {:draggable true
+     :on-click #(.stopPropagation %)
+     :on-drag-start #(rf/dispatch [::events/drag-cell id])
+     :on-drag-end #(rf/dispatch [::events/drop-cell])}
+    [:i.icofont.icofont-navigation-menu]]])
 
 (defn parse-args-from-js [f]
   (-> (str f)
-    (->> (re-find #"^function \(([^)]+)\)"))
+    (->> (re-find #"^function [^(]*\(([^)]+)\)"))
     second
     (string/split #",")
     (->> (mapv symbol))
