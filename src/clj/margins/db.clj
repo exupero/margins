@@ -25,7 +25,14 @@
                   :db/valueType :db.type/string
                   :db/cardinality :db.cardinality/one
                   :db/unique :db.unique/value}
+                 {:db/ident :notebook/slug
+                  :db/valueType :db.type/string
+                  :db/cardinality :db.cardinality/one
+                  :db/unique :db.unique/value}
                  {:db/ident :cell/notebook
+                  :db/valueType :db.type/ref
+                  :db/cardinality :db.cardinality/one}
+                 {:db/ident :attachment/cell
                   :db/valueType :db.type/ref
                   :db/cardinality :db.cardinality/one}])))
 
@@ -37,7 +44,7 @@
   (d/transact conn items))
 
 (defn create-notebook! []
-  (let [title (new-title)
+  (let [title (str "Untitled (" (new-title) ")")
         new-notebook {:db/id -1
                       :item/type :type/notebook
                       :item/id (UUID/randomUUID)
@@ -55,12 +62,22 @@
       (assoc :new-notebook (update new-notebook :db/id tempids)
              :new-cell (update new-cell :cell/notebook tempids)))))
 
+(defn notebook-update [id]
+  [:db/add id :notebook/updated-at (tc/to-date (t/now))])
+
 (defn update-notebook! [id title]
   (let [slug (slugify title)]
-    (-> (d/transact conn [[:db/add [:item/id id] :notebook/title title]
-                          [:db/add [:item/id id] :notebook/slug slug]
-                          [:db/add [:item/id id] :notebook/updated-at (tc/to-date (t/now))]])
+    (-> (d/transact conn [(notebook-update [:item/id id])
+                          [:db/add [:item/id id] :notebook/title title]
+                          [:db/add [:item/id id] :notebook/slug slug]])
       (assoc :updated-notebook {:notebook/title title :notebook/slug slug}))))
+
+(defn delete-notebook! [slug]
+  (let [id (d/q '[:find ?e .
+                  :in $ ?slug
+                  :where [?e :notebook/slug ?slug]]
+                @conn slug)]
+    (d/transact conn [[:db.fn/retractEntity id]])))
 
 (defn insert-cell! [notebook-id order]
   (let [new-cell {:item/type :type/cell
@@ -79,14 +96,22 @@
                             [(<= ?order ?o)]]
                           @conn notebook-id order)]
     (-> (d/transact conn
-                    (into [[:db/add [:item/id notebook-id] :notebook/updated-at (tc/to-date (t/now))]
+                    (into [(notebook-update [:item/id notebook-id])
                            new-cell]
                           (for [[id order] bumped-cells]
                             [:db/add [:item/id id] :cell/order (inc order)])))
       (assoc :new-cell new-cell))))
 
+(defn notebook-id-for-cell [id]
+  (d/q '[:find ?n .
+         :in $ ?cell-id
+         :where
+         [?e :item/id ?cell-id]
+         [?e :cell/notebook ?n]]
+       @conn id))
+
 (defn move-cell! [id order]
-  (let [cells (d/q '[:find [(pull ?e [:item/id :cell/order :cell/notebook]) ...]
+  (let [cells (d/q '[:find [(pull ?e [:item/id :cell/order]) ...]
                      :in $ ?cell-id
                      :where
                      [?e1 :item/id ?cell-id]
@@ -99,24 +124,16 @@
                           (assoc cell :cell/order (- order 0.5))
                           cell)))
                  (sort-by :cell/order))
-        _ (prn sorted)
         updates (map (fn [{:keys [item/id]} order]
                        [:db/add [:item/id id] :cell/order order])
-                     sorted (range))
-        notebook-id (-> cells first :cell/notebook :db/id)]
+                     sorted (range))]
     (d/transact conn
-                (into [[:db/add notebook-id :notebook/updated-at (tc/to-date (t/now))]
+                (into [(notebook-update (notebook-id-for-cell id))
                        [:db/add [:item/id id] :cell/order order]]
                       updates))))
 
 (defn update-cell! [cell-id {nm :cell/name :keys [cell/code cell/show-code? cell/dependencies]}]
-  (let [notebook-id (d/q '[:find ?n .
-                           :in $ ?cell-id
-                           :where
-                           [?e :item/id ?cell-id]
-                           [?e :cell/notebook ?n]]
-                         @conn)
-        transacts (cond-> [[:db/add notebook-id :notebook/updated-at (tc/to-date (t/now))]]
+  (let [transacts (cond-> [(notebook-update (notebook-id-for-cell cell-id))]
                           code (conj [:db/add [:item/id cell-id] :cell/code code])
                           (not (nil? show-code?)) (conj [:db/add [:item/id cell-id] :cell/show-code? show-code?])
                           nm (conj [:db/add [:item/id cell-id] :cell/name nm])
@@ -124,13 +141,7 @@
     (d/transact conn transacts)))
 
 (defn delete-cell! [id]
-  (let [notebook-id (d/q '[:find ?n .
-                           :in $ ?cell-id
-                           :where
-                           [?e :item/id ?cell-id]
-                           [?e :cell/notebook ?n]]
-                         @conn id)
-        bumped-cells (d/q '[:find (pull ?e [:item/id :cell/order :cell/notebook])
+  (let [bumped-cells (d/q '[:find (pull ?e [:item/id :cell/order :cell/notebook])
                             :in $ ?cell-id
                             :where
                             [?e1 :item/id ?cell-id]
@@ -142,10 +153,14 @@
                             [(< ?o1 ?o)]]
                           @conn id)]
     (d/transact conn
-                (into [[:db/add notebook-id :notebook/updated-at (tc/to-date (t/now))]
+                (into [(notebook-update (notebook-id-for-cell id))
                        [:db.fn/retractEntity [:item/id id]]]
                       (for [[{:keys [item/id cell/order]}] bumped-cells]
                         [:db/add [:item/id id] :cell/order (dec order)])))))
+
+(defn attach! [attachment]
+  (d/transact conn [(notebook-update (notebook-id-for-cell (second (attachment :attachment/cell))))
+                    attachment]))
 
 (defn transclude [notebook-slug nm remap-names]
   (let [deps (topo/topo-sort-cells
@@ -181,9 +196,6 @@
         [_ final-form] (parse-name-and-form final)
         m (meta final-form)]
     `(~'let [~@lets] (~'with-meta ~final-form ~m))))
-
-#_
-(transclude 'test-utils 'square '{height x})
 
 (comment
   (init-db! default-config)

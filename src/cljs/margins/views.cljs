@@ -86,25 +86,54 @@
                          (satisfies? margins.renderable/IRender v) (margins.renderable/render v)
                          :else (pr-str v)))}))
 
-(defn cell [{nm :cell/name :keys [item/id cell/code cell/show-code? cell/value cell/order cell/dirty?]}]
+(defn attachments [attaches]
+  [:div.attachment
+   (for [{nm :attachment/name :keys [attachment/content-type]} attaches]
+     [:div.ml5 {:key nm}
+      [ico :paper-clip]
+      [:em.ml5 nm]])])
+
+(defn error [e]
+  [:div "An error occurred:"
+   (.toString e)])
+
+(defn error-boundary [& _]
+  (let [err (r/atom nil)]
+    (r/create-class
+      {:get-derived-state-from-error
+       (fn [e]
+         (reset! err e)
+         #js {})
+       :component-did-catch
+       (fn [_ e _]
+         (reset! err e))
+       :reagent-render
+       (fn [& children]
+         (if @err
+           [:div [:pre (pr-str @err)]]
+           (into [:<>] children)))})))
+
+(defn cell [{nm :cell/name attaches :attachment/_cell :keys [item/id cell/code cell/show-code? cell/value cell/order cell/dirty?]}]
   (let [hovered-position @(rf/subscribe [::subs/hovered-position])]
     [:div.cell__main
-     {:class (when (or show-code? dirty? (nil? value))
+     {:class (when (or show-code? dirty? (and (nil? value) (nil? attaches)))
                "cell--side-border")
       :on-mouse-over #(rf/dispatch [::events/hover-position order])}
+     (when attaches
+       [attachments attaches])
      (when value
        [:div.cell__value.trim
-        [result nm value]])
+        [error-boundary [result nm value]]])
      (when show-code?
        [:div.cell__code [codemirror id true code]])]))
 
 (defn notebook []
   [:div
    [insert-cell 0]
-   (for [{:keys [item/id cell/show-code? cell/value cell/order] :as c} @(rf/subscribe [::subs/cells])]
+   (for [{attaches :attachment/_cell :keys [item/id cell/show-code? cell/value cell/order] :as c} @(rf/subscribe [::subs/cells])]
      [:div {:key id}
       [:div.cell
-       [cell-actions c (nil? value)]
+       [cell-actions c (and (nil? value) (nil? attaches))]
        [cell c]]
       [insert-cell (inc order)]])])
 

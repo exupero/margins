@@ -6,7 +6,9 @@
 
 (defonce globals (r/atom {}))
 
-(def schema {:item/id {:db/unique :db.unique/identity}})
+(def schema {:item/id {:db/unique :db.unique/identity}
+             :attachment/cell {:db/valueType :db.type/ref
+                               :db/index true}})
 
 (defn empty-db []
   (d/create-conn schema))
@@ -36,3 +38,11 @@
          :in $ ?slug
          :where [?e :notebook/slug ?slug]]
        db slug))
+
+(defn attachment [nm]
+  (d/q '[:find ?t .
+         :in $ ?name
+         :where
+         [?e :attachment/name ?name]
+         [?e :attachment/text ?t]]
+       @(@globals :db) nm))

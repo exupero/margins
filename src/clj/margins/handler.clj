@@ -33,6 +33,9 @@
 (defmethod act 'delete-cell [_ {:keys [item/id]}]
   (db/delete-cell! id))
 
+(defmethod act 'attach [_ attachment]
+  (db/attach! attachment))
+
 (defmulti ask (fn [q _] q))
 
 (defmethod ask 'include [_ form]
@@ -57,12 +60,9 @@
 
 (defn core [{:keys [uri] :as req}]
   (cond
-    (= uri "/")
-    index-response
-    (re-matches #"^/api$" uri)
-    (api req)
-    (re-matches #"^/[^/]+$" uri)
-    index-response))
+    (= uri "/") index-response
+    (re-matches #"^/api$" uri) (api req)
+    (re-matches #"^/[^/]+$" uri) index-response))
 
 (def handler (-> core
                wrap-params

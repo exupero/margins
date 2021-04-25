@@ -19,12 +19,17 @@
     (let [db (doto (db/empty-db) rp/connect!)]
       (if-let [slug (current-slug)]
         {:db db
-         :dispatch [::go-to-notebook slug]}
+         :dispatch [::go-to-notebook slug]
+         ::effects/set-globals {:db db}}
         {:db db
-         ::effects/set-global [:route :index]
+         ::effects/set-globals {:route :index, :db db}
          ::effects/query [{:query '[:find [(pull ?e [*]) ...]
                                     :where [?e :item/type :type/notebook]]
                            :handler #(rf/dispatch [::set-notebooks %])}]}))))
+
+(rf/reg-event-fx ::push-state
+  (fn [_ [_ url]]
+    {::effects/push-state url}))
 
 (rp/reg-event-ds ::set-notebooks
   (fn [_ [_ notebooks]]
@@ -38,9 +43,15 @@
                                    (when title (rf/dispatch [::set-title title]))
                                    (rf/dispatch [::go-to-notebook slug]))}]}))
 
-(rf/reg-event-fx ::push-state
-  (fn [_ [_ url]]
-    {::effects/push-state url}))
+(rf/reg-event-fx ::check-title
+  (fn [{:keys [db]} _]
+    (let [{current-title :notebook/title :keys [item/id]} (db/current-notebook @db (current-slug))
+          new-title (some-> (js/document.querySelector "h1") .-innerHTML)]
+      (when (and new-title (not= new-title current-title))
+        {::effects/mutate [{:mutation ['update-notebook {:item/id id :notebook/title new-title}]
+                            :handler (fn [{{:keys [notebook/slug notebook/title]} :updated-notebook}]
+                                       (rf/dispatch [::push-state (str "/" slug)])
+                                       (when title (rf/dispatch [::set-title title])))}]}))))
 
 (rf/reg-event-fx ::set-title
   (fn [_ [_ title]]
@@ -48,15 +59,14 @@
 
 (rf/reg-event-fx ::go-to-notebook
   (fn [{:keys [db]} [_ slug title]]
-    (prn db)
     {::effects/reset-db db
-     ::effects/set-global [:route :notebook]
+     ::effects/set-globals {:route :notebook}
      ::effects/query [{:query '[:find (pull ?e [*]) .
                                 :in $ ?slug
                                 :where [?e :notebook/slug ?slug]]
                        :args [slug]
                        :handler #(rf/dispatch [::set-notebook %])}
-                      {:query '[:find [(pull ?e [*]) ...]
+                      {:query '[:find [(pull ?e [* {:attachment/_cell [*]}]) ...]
                                 :in $ ?slug
                                 :where
                                 [?e :item/type :type/cell]
@@ -90,7 +100,8 @@
 (rf/reg-event-fx ::eval
   (fn [{:keys [db]} [_ id code]]
     (let [[nm form] (parse-name-and-form code)
-          dependencies (cljs/possible-dependencies (db/cell-names @db) form)]
+          dependencies (cljs/possible-dependencies (db/cell-names @db) form)
+          dependencies (disj dependencies nm)]
       {:db (doto db
              (db/transact! (cond-> [[:db/add [:item/id id] :cell/dependencies dependencies]
                                     [:db/add [:item/id id] :cell/dirty? false]]
@@ -128,23 +139,17 @@
 
 (rf/reg-event-fx ::hover-position
   (fn [db [_ order]]
-    {::effects/set-global [:hovered-position order]}))
-
-(rf/reg-event-fx ::check-title
-  (fn [{:keys [db]} _]
-    (let [{current-title :notebook/title :keys [item/id]} (db/current-notebook @db (current-slug))
-          new-title (some-> (js/document.querySelector "h1") .-innerHTML)]
-      (when (and new-title (not= new-title current-title))
-        {::effects/mutate [{:mutation ['update-notebook {:item/id id :notebook/title new-title}]
-                            :handler (fn [{{:keys [notebook/slug notebook/title]} :updated-notebook}]
-                                       (rf/dispatch [::push-state (str "/" slug)])
-                                       (when title (rf/dispatch [::set-title title])))}]}))))
+    {::effects/set-globals {:hovered-position order}}))
 
 (rf/reg-event-fx ::drag-cell
   (fn [_ [_ id]]
-    {::effects/set-global [:dragged-cell-id id]}))
+    {::effects/set-globals {:dragged-cell-id id}}))
 
 (rf/reg-event-fx ::drop-cell
   (fn [_ [_ id order]]
-    (cond-> {::effects/set-global [:dragged-cell-id nil]}
+    (cond-> {::effects/set-globals {:dragged-cell-id nil}}
             id (assoc ::effects/mutate [{:mutation ['move-cell {:item/id id :cell/order order}]}]))))
+
+(rf/reg-event-fx ::attach
+  (fn [_ [_ id]]
+    {::effects/select-file id}))

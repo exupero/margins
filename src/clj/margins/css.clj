@@ -25,6 +25,7 @@
 (def layout
   [[:clearfix {:clear :both}]
    [:.text-right {:text-align :right}]
+   [:.ml5 {:margin-left (u/rem 0.5)}]
    [:.mr5 {:margin-right (u/rem 0.5)}]
    [:.mr10 {:margin-right (u/rem 1)}]])
 

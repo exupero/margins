@@ -10,7 +10,6 @@
 
 (defn run [& [port]]
   (let [port (Integer/parseInt (or port "8282"))]
-    (prn #'margins.handler/handler)
     (reset! server (run-jetty #'margins.handler/handler {:port port :join? false}))))
 
 (comment

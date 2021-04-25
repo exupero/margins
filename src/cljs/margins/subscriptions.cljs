@@ -47,7 +47,7 @@
   :<- [::cell-ids]
   (fn [ids _]
     {:type :pull-many
-     :pattern '[*]
+     :pattern '[* {:attachment/_cell [*]}]
      :ids ids}))
 
 (rf/reg-sub ::cells

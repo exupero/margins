@@ -39,9 +39,9 @@
   (fn [_]
     (reset! db/globals {})))
 
-(rf/reg-fx ::set-global
-  (fn [[k v]]
-    (swap! db/globals assoc k v)))
+(rf/reg-fx ::set-globals
+  (fn [m]
+    (swap! db/globals merge m)))
 
 (rf/reg-fx ::query
   (fn [queries]
@@ -52,16 +52,21 @@
                (when handler (handler result))
                (rf/dispatch [:margins.events/error result])))))))
 
+(defn mutate
+  ([mutation] (mutate mutation nil))
+  ([mutation handler]
+   (api {:mutation mutation}
+        (fn [[ok result]]
+          (if ok
+            (do
+              (rf/dispatch [:margins.events/transact (result :tx-data)])
+              (when handler (handler result)))
+            (rf/dispatch [:margins.events/error result]))))))
+
 (rf/reg-fx ::mutate
   (fn [mutations]
     (doseq [{:keys [mutation handler]} mutations]
-      (api {:mutation mutation}
-           (fn [[ok result]]
-             (if ok
-               (do
-                 (rf/dispatch [:margins.events/transact (result :tx-data)])
-                 (when handler (handler result)))
-               (rf/dispatch [:margins.events/error result])))))))
+      (mutate mutation handler))))
 
 (rf/reg-fx ::push-state
   (fn [url]
@@ -71,3 +76,23 @@
   (fn [title]
     (when title
       (set! js/document.title (str title " / Margins")))))
+
+(defn attach-file [id file content]
+  (mutate ['attach {:attachment/cell [:item/id id]
+                    :attachment/name (.-name file)
+                    :attachment/content-type (.-type file)
+                    :attachment/text content}]))
+
+(rf/reg-fx ::select-file
+  (fn [id]
+    (doto (js/document.createElement "input")
+      (.setAttribute "type" "file")
+      (.addEventListener
+        "change"
+        (fn [e]
+          (let [[file] (array-seq (.. e -target -files))]
+            (doto (js/FileReader.)
+              (as-> reader (.addEventListener reader "load" #(attach-file id file (.-result reader))))
+              (.readAsText file))))
+        false)
+      .click)))
