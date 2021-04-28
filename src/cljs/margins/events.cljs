@@ -22,14 +22,21 @@
          :dispatch [::go-to-notebook slug]
          ::effects/set-globals {:db db}}
         {:db db
-         ::effects/set-globals {:route :index, :db db}
-         ::effects/query [{:query '[:find [(pull ?e [*]) ...]
-                                    :where [?e :item/type :type/notebook]]
-                           :handler #(rf/dispatch [::set-notebooks %])}]}))))
+         :dispatch [::go-to-index]
+         ::effects/set-globals {:db db}}))))
 
 (rf/reg-event-fx ::push-state
   (fn [_ [_ url]]
     {::effects/push-state url}))
+
+(rf/reg-event-fx ::go-to-index
+  (fn [{:keys [db]} _]
+    {::effects/push-state "/"
+     ::effects/reset-db db
+     ::effects/set-globals {:route :index}
+     ::effects/query [{:query '[:find [(pull ?e [*]) ...]
+                                :where [?e :item/type :type/notebook]]
+                       :handler #(rf/dispatch [::set-notebooks %])}]}))
 
 (rp/reg-event-ds ::set-notebooks
   (fn [_ [_ notebooks]]
@@ -59,7 +66,8 @@
 
 (rf/reg-event-fx ::go-to-notebook
   (fn [{:keys [db]} [_ slug title]]
-    {::effects/reset-db db
+    {::effects/push-state (str "/" slug)
+     ::effects/reset-db db
      ::effects/set-globals {:route :notebook}
      ::effects/query [{:query '[:find (pull ?e [*]) .
                                 :in $ ?slug
