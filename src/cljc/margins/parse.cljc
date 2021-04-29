@@ -3,7 +3,8 @@
                :cljs [cljs.tools.reader.reader-types :refer [string-push-back-reader]])
             [margins.reader :as reader]))
 
-(def data-readers {'md #(list* 'margins.markdown/markdown %)})
+(def data-readers {'md #(list* 'margins.markdown/markdown %)
+                   'tex #(list* 'margins.latex/latex %)})
 
 (defn parse-string
   ([s] (parse-string s data-readers))

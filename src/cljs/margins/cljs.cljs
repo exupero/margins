@@ -5,8 +5,9 @@
             ; these need to be included as they may be used by evaluated expressions
             net.cgrand.xforms
             margins.csv
-            margins.vega
-            margins.markdown))
+            margins.latex
+            margins.markdown
+            margins.vega))
 
 (defonce state (cljs.js/empty-state))
 

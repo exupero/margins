@@ -8,7 +8,7 @@
             [ring.middleware.resource :refer [wrap-resource]]
             [margins.db :as db]))
 
-(def index-response
+(defn index-response []
   {:status 200
    :headers {"Content-type" "text/html"}
    :body (slurp (io/resource "public/index.html"))})
@@ -60,9 +60,9 @@
 
 (defn core [{:keys [uri] :as req}]
   (cond
-    (= uri "/") index-response
+    (= uri "/") (index-response)
     (re-matches #"^/api$" uri) (api req)
-    (re-matches #"^/[^/]+$" uri) index-response))
+    (re-matches #"^/[^/]+$" uri) (index-response)))
 
 (def handler (-> core
                wrap-params

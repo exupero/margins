@@ -12,8 +12,9 @@
                                 cljs.core
                                 net.cgrand.xforms
                                 markdown.core
-                                margins.markdown
                                 margins.csv
+                                margins.latex
+                                margins.markdown
                                 margins.vega]
                       :exclude #{cljs.js}
                       :compiler-options {:cross-chunk-method-motion false}}}}

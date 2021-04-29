@@ -141,12 +141,16 @@
   [:div
    (for [{:keys [item/id notebook/title notebook/slug]} @(rf/subscribe [::subs/notebooks])]
      [:div {:key id}
-      [:a {:href "#" :on-click #(rf/dispatch [::events/go-to-notebook slug])} title]])])
+      [:a {:href (str "/" slug)
+           :on-click #(do (.preventDefault %) (rf/dispatch [::events/go-to-notebook slug]))}
+       title]])])
 
 (defn main []
   [:main
    [:div.text-right
-    [:a.mr10 {:href "#" :on-click #(rf/dispatch [::events/go-to-index])} "All Notebooks"]
+    [:a.mr10 {:href "/"
+              :on-click #(do (.preventDefault %) (rf/dispatch [::events/go-to-index]))}
+     "All Notebooks"]
     [:button.pointer
      {:on-click #(rf/dispatch [::events/create-notebook])}
      "New Notebook"]]
