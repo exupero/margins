@@ -2,6 +2,8 @@
   (:require [clojure.string :as string]
             [reagent.core :as r]
             [re-frame.core :as rf]
+            [cljs-time.coerce :as tc]
+            [cljs-time.format :as tf]
             [margins.codemirror :refer [codemirror]]
             [margins.events :as events]
             [margins.subscriptions :as subs]
@@ -127,8 +129,27 @@
      (when show-code?
        [:div.cell__code [codemirror id true code]])]))
 
+(defn last-updated []
+  (when-let [t @(rf/subscribe [::subs/last-updated])]
+    [:div.text-muted "Last updated "
+     (tf/unparse (tf/formatter "MMMM DD, YYYY ' at ' h:mm a")
+                 (tc/from-date t))]))
+
+(defn new-notebook []
+  [:button.pointer
+   {:on-click #(rf/dispatch [::events/create-notebook])}
+   "New Notebook"])
+
 (defn notebook []
   [:div
+   [:div
+    [:div.pull-right
+     [:a.mr10 {:href "/"
+               :on-click #(do (.preventDefault %) (rf/dispatch [::events/go-to-index]))}
+      "All Notebooks"]
+     [new-notebook]]
+    [last-updated]
+    [:div.clearfix]]
    [insert-cell 0]
    (for [{attaches :attachment/_cell :keys [item/id cell/show-code? cell/value cell/order] :as c} @(rf/subscribe [::subs/cells])]
      [:div {:key id}
@@ -139,6 +160,9 @@
 
 (defn index []
   [:div
+   [:div.pull-right
+    [new-notebook]
+    [:div.clearfix]]
    (for [{:keys [item/id notebook/title notebook/slug]} @(rf/subscribe [::subs/notebooks])]
      [:div {:key id}
       [:a {:href (str "/" slug)
@@ -147,13 +171,6 @@
 
 (defn main []
   [:main
-   [:div.text-right
-    [:a.mr10 {:href "/"
-              :on-click #(do (.preventDefault %) (rf/dispatch [::events/go-to-index]))}
-     "All Notebooks"]
-    [:button.pointer
-     {:on-click #(rf/dispatch [::events/create-notebook])}
-     "New Notebook"]]
    [:div.clearfix]
    (condp = @(rf/subscribe [::subs/route])
      :index [index]

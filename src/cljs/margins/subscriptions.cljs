@@ -54,3 +54,7 @@
   :<- [::cells-unordered]
   (fn [cells _]
     (sort-by :cell/order cells)))
+
+(rp/reg-query-sub ::last-updated
+  '[:find ?t .
+    :where [_ :notebook/updated-at ?t]])

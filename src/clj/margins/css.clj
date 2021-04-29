@@ -11,6 +11,8 @@
 
 (def accent (c/hsl 220 34 60))
 
+(def gray (c/hsl 0 0 70))
+
 (def util
   [[:.pointer {:cursor :pointer}]
    [:.grabber {:cursor :grab}]
@@ -22,9 +24,13 @@
      [:&:first-child {:margin-top 0}]
      [:&:last-child {:margin-bottom 0}]]]])
 
+(def text
+  [[:.text-muted {:color gray}]
+   [:.text-right {:text-align :right}]])
+
 (def layout
-  [[:clearfix {:clear :both}]
-   [:.text-right {:text-align :right}]
+  [[:.pull-right {:float :right}]
+   [:.clearfix {:clear :both}]
    [:.ml5 {:margin-left (u/rem 0.5)}]
    [:.mr5 {:margin-right (u/rem 0.5)}]
    [:.mr10 {:margin-right (u/rem 1)}]])
@@ -84,6 +90,7 @@
     [:code {:font-family ["'PT Mono'"]
             :font-size (u/pt 10)}]]
    util
+   text
    layout
    cell
    insert-cell

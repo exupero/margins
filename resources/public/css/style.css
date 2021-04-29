@@ -41,12 +41,20 @@ body code {
   margin-bottom: 0;
 }
 
-clearfix {
-  clear: both;
+.text-muted {
+  color: #b3b3b3;
 }
 
 .text-right {
   text-align: right;
+}
+
+.pull-right {
+  float: right;
+}
+
+.clearfix {
+  clear: both;
 }
 
 .ml5 {
