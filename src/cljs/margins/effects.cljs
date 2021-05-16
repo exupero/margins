@@ -29,7 +29,10 @@
     (cljs/eval-forms (for [{:keys [id] :as cell} cells]
                        (assoc cell
                               :load-include load-include
-                              :callback #(rf/dispatch [:margins.events/evaled id %]))))))
+                              :callback (fn [value]
+                                          (if (.-then value)
+                                            (.then value #(rf/dispatch [:margins.events/evaled id %]))
+                                            (rf/dispatch [:margins.events/evaled id value]))))))))
 
 (rf/reg-fx ::reset-db
   (fn [db]
