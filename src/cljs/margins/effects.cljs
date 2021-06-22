@@ -75,6 +75,10 @@
   (fn [url]
     (js/window.history.pushState nil "Margins" url)))
 
+(rf/reg-fx ::clear-title
+  (fn [_]
+    (set! js/document.title "Margins")))
+
 (rf/reg-fx ::set-title
   (fn [title]
     (when title

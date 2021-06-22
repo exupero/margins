@@ -283,6 +283,7 @@
   (let [ch (read-char rdr)]
     (case ch
       \~ "~"
+      \` "`"
       \t "\t"
       \r "\r"
       \n "\n"

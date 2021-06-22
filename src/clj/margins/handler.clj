@@ -56,7 +56,7 @@
        :body (ask q params)})
     query
     {:status 200
-     :body (db/query query args)}))
+     :body (apply db/query query args)}))
 
 (defn core [{:keys [uri] :as req}]
   (cond

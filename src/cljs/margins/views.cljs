@@ -132,7 +132,7 @@
 (defn last-updated []
   (when-let [t @(rf/subscribe [::subs/last-updated])]
     [:div.text-muted "Last updated "
-     (tf/unparse (tf/formatter "MMMM DD, YYYY ' at ' h:mm a")
+     (tf/unparse (tf/formatter "MMMM D, YYYY ' at ' h:mm a")
                  (tc/from-date t))]))
 
 (defn new-notebook []

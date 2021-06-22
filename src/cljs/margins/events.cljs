@@ -31,7 +31,8 @@
 
 (rf/reg-event-fx ::go-to-index
   (fn [{:keys [db]} _]
-    {::effects/push-state "/"
+    {::effects/clear-title nil
+     ::effects/push-state "/"
      ::effects/reset-db db
      ::effects/set-globals {:route :index}
      ::effects/query [{:query '[:find [(pull ?e [*]) ...]

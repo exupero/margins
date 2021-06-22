@@ -19,6 +19,8 @@
          (transduce
            (map (fn [s]
                   (if-let [src (-> s meta :latex-source)]
-                    (str "@@" src "@@")
+                    (if (re-find #"\n" src)
+                      (str "$$" src "$$")
+                      (str "@@" src "@@"))
                     s)))
            str ss)])
